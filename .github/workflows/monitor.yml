@@ -24,7 +24,7 @@ jobs:
   monitor:
     environment: TELEGRAM_BOT_TOKEN
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -35,6 +35,7 @@ jobs:
           python -m zipfile -e source.zip app
           if [[ -f config.json ]]; then cp config.json app/config.json; fi
           python -m pip install -r app/requirements.txt
+          if python -m pip show playwright > /dev/null 2>&1; then python -m playwright install --with-deps --no-shell chromium; fi
       - name: Tests
         working-directory: app
         run: python -m unittest discover -s tests -v
@@ -52,6 +53,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          GMC_BROWSER_HEADLESS: 'false'
         run: |
           flags=()
           if [[ "$DRY_RUN" != "true" && -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
@@ -61,7 +63,7 @@ jobs:
             echo 'Telegram отключен: dry run или отсутствуют Secrets.' >> "$GITHUB_STEP_SUMMARY"
           fi
           set +e
-          python -m partwatch "${flags[@]}"
+          xvfb-run -a python -m partwatch "${flags[@]}"
           result=$?
           set -e
           if [[ -f report.json ]]; then
