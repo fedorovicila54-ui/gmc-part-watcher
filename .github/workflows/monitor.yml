@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   monitor:
+    environment: TELEGRAM_BOT_TOKEN
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -54,6 +55,7 @@ jobs:
         run: |
           flags=()
           if [[ "$DRY_RUN" != "true" && -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
+            python -c 'from partwatch.telegram import Telegram; b=Telegram(); me=b.call("getMe", {}); print("Telegram bot:", me["username"]); assert me["username"].lower()=="gmc12213_bot", "Unexpected Telegram bot"'
             flags+=(--notify)
           else
             echo 'Telegram отключен: dry run или отсутствуют Secrets.' >> "$GITHUB_STEP_SUMMARY"
@@ -64,6 +66,10 @@ jobs:
           set -e
           if [[ -f report.json ]]; then
             python -c 'import json,os; r=json.load(open("report.json")); f=open(os.environ["GITHUB_STEP_SUMMARY"],"a"); f.write("\n~~~json\n"+json.dumps(r,ensure_ascii=False,indent=2)+"\n~~~\n")'
+          fi
+          if [[ "$result" == 2 ]] && python -c 'import json,sys; r=json.load(open("report.json")); sys.exit(0 if any(s["status"]=="ok" for s in r["sources"]) else 1)'; then
+            echo '::warning::Часть площадок недоступна; доступные проверены. Подробности в Summary.'
+            result=0
           fi
           exit "$result"
       - name: Persist notification state even after a partial failure
