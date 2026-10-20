@@ -1,0 +1,15 @@
+{
+  "reference_url": "https://parts.av.by/car/gmc_terrain_ii-2017-2022_molding-kryla-perednego-levogo_138518208",
+  "year_min": 2017,
+  "year_max": 2022,
+  "excluded_ids": ["138518208", "1083692519", "1059660113", "1086543965", "1086430663", "1059660114"],
+  "black_oem_numbers": [],
+  "notify_review": true,
+  "max_notifications": 10,
+  "request_interval_seconds": 3,
+  "sources": [
+    {"name": "kufar", "enabled": true, "url": "https://auto.kufar.by/l/molding-kryla-perednego-levogo/z~gmc"},
+    {"name": "bamper", "enabled": true, "url": "https://bamper.by/zchbu/zapchast_molding-kryla-perednego-levogo/marka_gmc/model_gmc-terrain/"},
+    {"name": "avby", "enabled": true, "url": "https://parts.av.by/car/gmc"}
+  ]
+}
