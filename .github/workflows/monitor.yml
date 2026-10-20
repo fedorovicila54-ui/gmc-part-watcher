@@ -1,0 +1,87 @@
+name: GMC Part Watcher
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Проверка без отправки в Telegram'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ['source.zip', 'config.json', '.github/workflows/monitor.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gmc-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Extract source and install dependencies
+        run: |
+          python -m zipfile -e source.zip app
+          if [[ -f config.json ]]; then cp config.json app/config.json; fi
+          python -m pip install -r app/requirements.txt
+      - name: Tests
+        working-directory: app
+        run: python -m unittest discover -s tests -v
+      - name: Restore notification state
+        run: |
+          mkdir -p app/.state
+          if git ls-remote --exit-code --heads origin bot-state > /dev/null; then
+            git fetch origin bot-state:refs/remotes/origin/bot-state --depth=1
+            git show refs/remotes/origin/bot-state:state.json > app/.state/state.json
+          fi
+      - name: Check listings
+        id: scan
+        working-directory: app
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          flags=()
+          if [[ "$DRY_RUN" != "true" && -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
+            flags+=(--notify)
+          else
+            echo 'Telegram отключен: dry run или отсутствуют Secrets.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          set +e
+          python -m partwatch "${flags[@]}"
+          result=$?
+          set -e
+          if [[ -f report.json ]]; then
+            python -c 'import json,os; r=json.load(open("report.json")); f=open(os.environ["GITHUB_STEP_SUMMARY"],"a"); f.write("\n~~~json\n"+json.dumps(r,ensure_ascii=False,indent=2)+"\n~~~\n")'
+          fi
+          exit "$result"
+      - name: Persist notification state even after a partial failure
+        if: always() && steps.scan.outcome != 'skipped'
+        run: |
+          if [[ ! -f app/.state/state.json ]]; then exit 0; fi
+          cp app/.state/state.json "$RUNNER_TEMP/gmc-state.json"
+          git config user.name 'gmc-part-watcher[bot]'
+          git config user.email 'gmc-part-watcher@users.noreply.github.com'
+          if git show-ref --verify --quiet refs/remotes/origin/bot-state; then
+            git checkout -B bot-state refs/remotes/origin/bot-state
+          else
+            git checkout --orphan bot-state
+            git rm -rf --ignore-unmatch .
+          fi
+          cp "$RUNNER_TEMP/gmc-state.json" state.json
+          git add -f state.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Save notification state'
+            git push origin HEAD:bot-state
+          fi
