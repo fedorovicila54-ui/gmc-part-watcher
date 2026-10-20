@@ -6,8 +6,8 @@
   },
   "health": {
     "kufar": "ok:",
-    "bamper": "unavailable:blocked: HTTP 403, защита или ограничение запросов",
-    "avby": "unavailable:blocked: HTTP 403, защита или ограничение запросов"
+    "bamper": "unavailable:interactive: сайт требует проверку человека в браузере; каталог не прочитан",
+    "avby": "unavailable:interactive: сайт требует проверку человека в браузере; каталог не прочитан"
   },
-  "last_run": "2026-10-20T15:28:13.349258+00:00"
+  "last_run": "2026-10-20T15:41:09.341837+00:00"
 }
